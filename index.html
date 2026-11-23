@@ -810,6 +810,10 @@
                             <label class="block text-sm font-semibold text-slate-700 mb-1">NIP Kepala Sekolah</label>
                             <input type="text" id="set-nip" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg">
                         </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-1">Link URL Cap/Ttd Kepsek (Opsional)</label>
+                            <input type="url" id="set-cap-kepsek" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm" placeholder="Cth: https://i.imgur.com/contoh.png">
+                        </div>
                     </div>
 
                     <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 space-y-4">
@@ -988,6 +992,7 @@
             alamatSekolah: "Desa Oki Lama, Kecamatan Namrole, Kabupaten Buru Selatan",
             kepalaSekolah: "Hj. Mariam, S.Pd",
             nipKepalaSekolah: "19700101 199001 2 001",
+            capKepsek: "",
             namaAdmin: "Administrator Sistem",
             semester: "Ganjil",
             tahunAjaran: "2026/2027",
@@ -1027,6 +1032,7 @@
 
         let appData = JSON.parse(localStorage.getItem('erapor_sdn16_data')) || JSON.parse(JSON.stringify(defaultData));
         if (!appData.alamatSekolah) appData.alamatSekolah = defaultData.alamatSekolah;
+        if (appData.capKepsek === undefined) appData.capKepsek = defaultData.capKepsek;
         if (!appData.ekskul) appData.ekskul = JSON.parse(JSON.stringify(defaultData.ekskul));
         if (!appData.absensi) appData.absensi = {};
         if (!appData.catatanWali) appData.catatanWali = {};
@@ -1298,6 +1304,7 @@
             document.getElementById('set-alamat').value = appData.alamatSekolah || '';
             document.getElementById('set-kepsek').value = appData.kepalaSekolah || '';
             document.getElementById('set-nip').value = appData.nipKepalaSekolah || '';
+            document.getElementById('set-cap-kepsek').value = appData.capKepsek || '';
             document.getElementById('set-ta').value = appData.tahunAjaran || '';
             document.getElementById('set-semester').value = appData.semester || 'Ganjil';
             document.getElementById('set-ttd-rapor').value = appData.tempatTanggalRapor || '';
@@ -1309,6 +1316,7 @@
             appData.alamatSekolah = document.getElementById('set-alamat').value.trim();
             appData.kepalaSekolah = document.getElementById('set-kepsek').value.trim();
             appData.nipKepalaSekolah = document.getElementById('set-nip').value.trim();
+            appData.capKepsek = document.getElementById('set-cap-kepsek').value.trim();
             appData.tahunAjaran = document.getElementById('set-ta').value.trim();
             appData.semester = document.getElementById('set-semester').value;
             appData.tempatTanggalRapor = document.getElementById('set-ttd-rapor').value.trim();
@@ -1910,9 +1918,12 @@
                     <div class="text-center"><p class="mb-20">Orang Tua / Wali</p><p class="border-b border-black min-w-[150px] inline-block">&nbsp;</p></div>
                     <div class="text-center"><p class="mb-20">${appData.tempatTanggalRapor}<br>Wali Kelas ${siswa.kelas}</p><p class="border-b border-black min-w-[150px] inline-block">&nbsp;</p></div>
                 </div>
-                <div class="mt-8 text-center text-sm">
-                    <p class="mb-20">Mengetahui,<br>Kepala Sekolah</p>
-                    <p class="font-bold border-b border-black inline-block min-w-[200px]">${appData.kepalaSekolah}</p>
+                <div class="mt-8 text-center text-sm flex flex-col items-center">
+                    <p class="mb-2">Mengetahui,<br>Kepala Sekolah</p>
+                    <div class="relative h-20 w-48 flex items-center justify-center">
+                        ${appData.capKepsek ? `<img src="${appData.capKepsek}" class="max-h-24 max-w-full object-contain mix-blend-multiply absolute z-0" alt="Cap Kepsek">` : ''}
+                    </div>
+                    <p class="font-bold border-b border-black inline-block min-w-[200px] relative z-10">${appData.kepalaSekolah}</p>
                     <p>NIP. ${appData.nipKepalaSekolah}</p>
                 </div>
             `;
