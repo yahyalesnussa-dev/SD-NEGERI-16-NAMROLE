@@ -203,10 +203,14 @@
                         </div>
                         <div>
                             <label class="block text-sm font-semibold text-slate-700 mb-1.5">Peran (Role)</label>
-                            <select id="reg-role" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none">
+                            <select id="reg-role" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none" onchange="toggleRegDetail()">
                                 <option value="Wali Kelas">Wali Kelas</option>
                                 <option value="Guru Mapel">Guru Mata Pelajaran</option>
                             </select>
+                        </div>
+                        <div id="wrap-reg-detail">
+                            <label class="block text-sm font-semibold text-slate-700 mb-1.5" id="label-reg-detail">Pilih Kelas</label>
+                            <select id="reg-detail" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none"></select>
                         </div>
                         <button onclick="doRegister()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-lg mt-2">
                             Daftar Sekarang
@@ -1136,6 +1140,27 @@
         function toggleAuth(type) {
             ['login', 'register', 'forgot'].forEach(t => document.getElementById(`form-${t}`).classList.add('hidden'));
             document.getElementById(`form-${type}`).classList.remove('hidden');
+            if (type === 'register') toggleRegDetail();
+        }
+
+        function toggleRegDetail() {
+            const role = document.getElementById('reg-role').value;
+            const wrap = document.getElementById('wrap-reg-detail');
+            const label = document.getElementById('label-reg-detail');
+            const select = document.getElementById('reg-detail');
+            
+            if (role === 'Wali Kelas') {
+                wrap.classList.remove('hidden');
+                label.innerText = 'Pilih Kelas (Wali Kelas)';
+                select.innerHTML = appData.kelas.map(k => `<option value="Kelas ${k}">Kelas ${k}</option>`).join('');
+            } else if (role === 'Guru Mapel') {
+                wrap.classList.remove('hidden');
+                label.innerText = 'Pilih Mata Pelajaran';
+                select.innerHTML = appData.mapel.map(m => `<option value="${m}">${m}</option>`).join('');
+            } else {
+                wrap.classList.add('hidden');
+                select.innerHTML = `<option value="${role}">${role}</option>`;
+            }
         }
 
         function togglePasswordVisibility(inputId, btnEl) {
@@ -1166,9 +1191,10 @@
             const username = document.getElementById('reg-username').value.trim().toLowerCase().replace(/\s+/g, '');
             const password = document.getElementById('reg-password').value;
             const role = document.getElementById('reg-role').value;
+            const tugas = document.getElementById('reg-detail').value;
             if (!nama || !username || !password) return Swal.fire('Gagal', 'Semua kolom wajib diisi!', 'warning');
             if (appData.akun.some(u => u.username === username)) return Swal.fire('Gagal', 'Username sudah terpakai!', 'error');
-            appData.akun.push({ id: Date.now(), nama, username, password, role, tugas: role });
+            appData.akun.push({ id: Date.now(), nama, username, password, role, tugas: tugas });
             saveData();
             Swal.fire({ icon: 'success', title: 'Berhasil', text: 'Akun dibuat, silakan login.', timer: 1500, showConfirmButton: false });
             toggleAuth('login');
