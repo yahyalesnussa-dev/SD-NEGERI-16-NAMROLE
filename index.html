@@ -27,16 +27,49 @@
             animation: fadeIn 0.3s ease-out forwards;
         }
         @media print {
-            body * { visibility: hidden; }
-            #print-area, #print-area * { visibility: visible; }
-            #print-area {
-                position: absolute;
-                left: 0;
-                top: 0;
-                width: 100%;
-                background: white;
+            /* Reset batasan layout aplikasi (seperti h-screen, overflow-hidden) agar bisa berhalaman-halaman */
+            body, html, .h-screen, .overflow-hidden, .flex-1, main, .overflow-y-auto {
+                height: auto !important;
+                min-height: auto !important;
+                overflow: visible !important;
+                position: static !important;
+                display: block !important;
             }
-            .no-print { display: none !important; }
+            
+            /* Sembunyikan elemen UI dasar yang tidak diperlukan di kertas */
+            #main-sidebar, header, #sidebar-overlay, #auth-screen, .no-print {
+                display: none !important;
+            }
+
+            /* Sembunyikan semua page-view, dan tampilkan hanya view yang aktif untuk dicetak */
+            .page-view {
+                display: none !important;
+            }
+            #view-rapor, #view-rangking {
+                display: block !important;
+            }
+
+            /* Hilangkan jarak/padding bawaan dari bungkus aplikasi */
+            main {
+                padding: 0 !important;
+                margin: 0 !important;
+            }
+            
+            /* Kunci Utama: Ubah absolute menjadi static agar bisa multi-halaman */
+            #print-area {
+                position: static !important;
+                width: 100%;
+                padding: 0 !important;
+                margin: 0 !important;
+                border: none !important;
+                box-shadow: none !important;
+                background: white;
+                display: block !important;
+            }
+
+            /* Mencegah baris tabel terpotong di tengah antar-halaman (page break) */
+            table { page-break-inside: auto; }
+            tr { page-break-inside: avoid; page-break-after: auto; }
         }
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: #f8fafc; }
@@ -756,35 +789,13 @@
 
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 space-y-4">
-                        <h3 class="text-lg font-bold text-slate-800 border-b pb-3">Identitas & Kop Sekolah</h3>
-                        <div>
-                            <label class="block text-sm font-semibold text-slate-700 mb-1">Logo Sekolah</label>
-                            <div class="flex items-center gap-4">
-                                <div class="w-16 h-16 border-2 border-dashed border-slate-300 rounded-lg flex items-center justify-center overflow-hidden bg-slate-50 shrink-0" id="preview-logo-container">
-                                    <img id="preview-logo" src="" class="w-full h-full object-contain hidden" alt="Logo">
-                                    <i class="fa-solid fa-school text-slate-400 text-2xl" id="icon-logo-placeholder"></i>
-                                </div>
-                                <div class="flex-1">
-                                    <input type="file" id="set-logo" accept="image/png, image/jpeg" class="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" onchange="previewLogo(this)">
-                                    <p class="text-xs text-slate-500 mt-1">Format PNG/JPG (Kotak/Persegi). Maks 500KB.</p>
-                                </div>
-                                <button onclick="removeLogo()" class="text-red-500 hover:text-red-700 text-sm hidden" id="btn-remove-logo"><i class="fa-solid fa-trash"></i> Hapus</button>
-                            </div>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-semibold text-slate-700 mb-1">Instansi / Pemerintah Daerah (Baris 1 Kop)</label>
-                            <input type="text" id="set-pemda" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg" placeholder="Cth: PEMERINTAH KABUPATEN BURU SELATAN">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-semibold text-slate-700 mb-1">Dinas Terkait (Baris 2 Kop)</label>
-                            <input type="text" id="set-dinas" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg" placeholder="Cth: DINAS PENDIDIKAN DAN KEBUDAYAAN">
-                        </div>
+                        <h3 class="text-lg font-bold text-slate-800 border-b pb-3">Identitas Sekolah</h3>
                         <div>
                             <label class="block text-sm font-semibold text-slate-700 mb-1">Nama Sekolah</label>
                             <input type="text" id="set-sekolah" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg">
                         </div>
                         <div>
-                            <label class="block text-sm font-semibold text-slate-700 mb-1">Alamat Lengkap Sekolah (Baris Bawah Kop)</label>
+                            <label class="block text-sm font-semibold text-slate-700 mb-1">Alamat Lengkap Sekolah</label>
                             <input type="text" id="set-alamat" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg" placeholder="Cth: Jalan Pendidikan No. 1, Oki Lama, Kec. Namrole">
                         </div>
                         <div>
@@ -969,13 +980,10 @@
         const isGoogleAppsScript = typeof google !== 'undefined' && google.script && google.script.run;
 
         const defaultData = {
-            pemda: "PEMERINTAH KABUPATEN BURU SELATAN",
-            dinas: "DINAS PENDIDIKAN DAN KEBUDAYAAN",
             sekolah: "SD Negeri 16 Namrole",
             alamatSekolah: "Desa Oki Lama, Kecamatan Namrole, Kabupaten Buru Selatan",
             kepalaSekolah: "Hj. Mariam, S.Pd",
             nipKepalaSekolah: "19700101 199001 2 001",
-            logoSekolah: "",
             namaAdmin: "Administrator Sistem",
             semester: "Ganjil",
             tahunAjaran: "2026/2027",
@@ -1014,8 +1022,6 @@
         };
 
         let appData = JSON.parse(localStorage.getItem('erapor_sdn16_data')) || JSON.parse(JSON.stringify(defaultData));
-        if (!appData.pemda) appData.pemda = defaultData.pemda;
-        if (!appData.dinas) appData.dinas = defaultData.dinas;
         if (!appData.alamatSekolah) appData.alamatSekolah = defaultData.alamatSekolah;
         if (!appData.ekskul) appData.ekskul = JSON.parse(JSON.stringify(defaultData.ekskul));
         if (!appData.absensi) appData.absensi = {};
@@ -1260,41 +1266,8 @@
             document.getElementById('stat-nilai').innerText = Object.keys(appData.nilai).length;
         }
 
-        let tempLogoBase64 = null;
-
-        function previewLogo(input) {
-            if (input.files && input.files[0]) {
-                const file = input.files[0];
-                if (file.size > 500 * 1024) {
-                    Swal.fire('Terlalu Besar', 'Ukuran gambar maksimal 500KB.', 'warning');
-                    input.value = '';
-                    return;
-                }
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    tempLogoBase64 = e.target.result;
-                    document.getElementById('preview-logo').src = tempLogoBase64;
-                    document.getElementById('preview-logo').classList.remove('hidden');
-                    document.getElementById('icon-logo-placeholder').classList.add('hidden');
-                    document.getElementById('btn-remove-logo').classList.remove('hidden');
-                }
-                reader.readAsDataURL(file);
-            }
-        }
-
-        function removeLogo() {
-            tempLogoBase64 = "";
-            document.getElementById('set-logo').value = '';
-            document.getElementById('preview-logo').src = '';
-            document.getElementById('preview-logo').classList.add('hidden');
-            document.getElementById('icon-logo-placeholder').classList.remove('hidden');
-            document.getElementById('btn-remove-logo').classList.add('hidden');
-        }
-
         // --- PENGATURAN ---
         function renderPengaturan() {
-            document.getElementById('set-pemda').value = appData.pemda || '';
-            document.getElementById('set-dinas').value = appData.dinas || '';
             document.getElementById('set-sekolah').value = appData.sekolah || '';
             document.getElementById('set-alamat').value = appData.alamatSekolah || '';
             document.getElementById('set-kepsek').value = appData.kepalaSekolah || '';
@@ -1303,24 +1276,9 @@
             document.getElementById('set-semester').value = appData.semester || 'Ganjil';
             document.getElementById('set-ttd-rapor').value = appData.tempatTanggalRapor || '';
             document.getElementById('set-gas-url').value = appData.gasUrl || '';
-            
-            if (appData.logoSekolah) {
-                document.getElementById('preview-logo').src = appData.logoSekolah;
-                document.getElementById('preview-logo').classList.remove('hidden');
-                document.getElementById('icon-logo-placeholder').classList.add('hidden');
-                document.getElementById('btn-remove-logo').classList.remove('hidden');
-            } else {
-                document.getElementById('preview-logo').src = '';
-                document.getElementById('preview-logo').classList.add('hidden');
-                document.getElementById('icon-logo-placeholder').classList.remove('hidden');
-                document.getElementById('btn-remove-logo').classList.add('hidden');
-            }
-            tempLogoBase64 = null;
         }
 
         function savePengaturan() {
-            appData.pemda = document.getElementById('set-pemda').value.trim();
-            appData.dinas = document.getElementById('set-dinas').value.trim();
             appData.sekolah = document.getElementById('set-sekolah').value.trim();
             appData.alamatSekolah = document.getElementById('set-alamat').value.trim();
             appData.kepalaSekolah = document.getElementById('set-kepsek').value.trim();
@@ -1329,33 +1287,9 @@
             appData.semester = document.getElementById('set-semester').value;
             appData.tempatTanggalRapor = document.getElementById('set-ttd-rapor').value.trim();
             appData.gasUrl = document.getElementById('set-gas-url').value.trim();
-            
-            if (tempLogoBase64 !== null) {
-                appData.logoSekolah = tempLogoBase64;
-                tempLogoBase64 = null;
-            }
 
             saveData();
             Swal.fire({ icon: 'success', title: 'Tersimpan', text: 'Pengaturan sekolah diperbarui.', timer: 1500, showConfirmButton: false });
-        }
-
-        function getKopSekolahHTML() {
-            const logoSrc = appData.logoSekolah ? `<img src="${appData.logoSekolah}" class="w-full h-full object-contain" />` : `<i class="fa-solid fa-school text-4xl text-black"></i>`;
-            return `
-                <div class="flex items-center justify-between border-b-4 border-double border-black pb-3 mb-5 gap-4">
-                    <div class="w-20 h-20 shrink-0 flex items-center justify-center p-1">
-                        ${logoSrc}
-                    </div>
-                    <div class="text-center flex-1">
-                        <h3 class="font-bold text-sm uppercase tracking-wide">${appData.pemda || 'PEMERINTAH KABUPATEN BURU SELATAN'}</h3>
-                        <h3 class="font-bold text-base uppercase tracking-wide">${appData.dinas || 'DINAS PENDIDIKAN DAN KEBUDAYAAN'}</h3>
-                        <h1 class="font-extrabold text-xl uppercase tracking-wider mt-0.5">${appData.sekolah}</h1>
-                        <p class="text-xs italic mt-0.5">${appData.alamatSekolah || 'Desa Oki Lama, Kecamatan Namrole, Kabupaten Buru Selatan'}</p>
-                    </div>
-                    <div class="w-20 h-20 shrink-0 flex items-center justify-center p-1">
-                    </div>
-                </div>
-            `;
         }
 
         // --- AKUN ---
@@ -1916,7 +1850,6 @@
             const catatanWali = appData.catatanWali[sId] || "";
 
             document.getElementById('print-area').innerHTML = `
-                ${getKopSekolahHTML()}
                 <div class="text-center mb-5">
                     <h2 class="font-bold text-lg uppercase underline tracking-wider">Laporan Hasil Belajar (Rapor)</h2>
                 </div>
@@ -2070,10 +2003,9 @@
             }).join('');
 
             printArea.innerHTML = `
-                ${getKopSekolahHTML()}
                 <div class="text-center mb-6">
                     <h2 class="font-bold text-lg uppercase underline tracking-wider">Daftar Peringkat Siswa</h2>
-                    <p class="mt-2 text-sm">Kelas: <b>${kelas}</b> &nbsp;|&nbsp; Tahun Ajaran: <b>${appData.tahunAjaran}</b> &nbsp;|&nbsp; Semester: <b>${appData.semester}</b></p>
+                    <p class="mt-2 text-sm">Sekolah: <b>${appData.sekolah}</b> &nbsp;|&nbsp; Kelas: <b>${kelas}</b> &nbsp;|&nbsp; Tahun Ajaran: <b>${appData.tahunAjaran}</b> &nbsp;|&nbsp; Semester: <b>${appData.semester}</b></p>
                 </div>
                 <table class="w-full text-sm border-collapse border border-black mb-8">
                     <thead>
