@@ -10,6 +10,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- SweetAlert2 -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- QRCode.js untuk scan Google Authenticator -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
@@ -253,6 +255,31 @@
                         <a href="#" onclick="toggleAuth('login')" class="text-blue-600 font-bold hover:underline"><i class="fa-solid fa-arrow-left mr-1"></i> Kembali ke Login</a>
                     </div>
                 </div>
+
+                <!-- FORM VERIFIKASI AUTHENTICATOR (2FA) -->
+                <div id="form-2fa" class="p-8 sm:p-10 hidden">
+                    <div class="text-center mb-6">
+                        <div class="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 text-3xl border border-blue-100">
+                            <i class="fa-solid fa-shield-halved"></i>
+                        </div>
+                        <h3 class="text-2xl font-bold text-slate-800 mb-2">Verifikasi Authenticator</h3>
+                        <p class="text-sm text-slate-500">Masukkan 6 digit kode dari aplikasi Google Authenticator / Authy Anda.</p>
+                    </div>
+                    <div class="space-y-5">
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-1.5 text-center">Kode 6 Digit</label>
+                            <input type="text" id="login-2fa-code" maxlength="6" inputmode="numeric" autocomplete="one-time-code"
+                                class="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-center text-2xl font-bold tracking-[0.5em] focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none"
+                                placeholder="000000" onkeyup="if(event.key==='Enter') doVerify2FA()">
+                        </div>
+                        <button onclick="doVerify2FA()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-blue-200">
+                            Verifikasi & Masuk <i class="fa-solid fa-check-circle ml-1"></i>
+                        </button>
+                    </div>
+                    <div class="mt-6 text-center text-sm text-slate-600">
+                        <a href="#" onclick="cancel2FA()" class="text-slate-500 font-semibold hover:text-blue-600"><i class="fa-solid fa-arrow-left mr-1"></i> Batal & Kembali ke Login</a>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -350,6 +377,9 @@
                     <p id="logged-user-role" class="text-xs text-blue-300 truncate">Role</p>
                 </div>
             </div>
+            <button onclick="open2FAModal()" class="w-full py-2 px-3 mb-2 bg-blue-800/80 hover:bg-blue-700 text-blue-100 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-2 border border-blue-700/60">
+                <i class="fa-solid fa-shield-halved text-emerald-400"></i> Kode Authenticator (2FA)
+            </button>
             <button onclick="doLogout()" class="w-full py-2 px-3 bg-red-600/90 hover:bg-red-600 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-2">
                 <i class="fa-solid fa-right-from-bracket"></i> Keluar Sistem
             </button>
@@ -983,6 +1013,59 @@
         </div>
     </div>
 
+    <!-- MODAL PENGATURAN AUTHENTICATOR (2FA) -->
+    <div id="modal-2fa-setup" class="fixed inset-0 bg-slate-900 bg-opacity-50 z-50 flex items-center justify-center hidden">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+                <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                    <i class="fa-solid fa-shield-halved text-blue-600"></i> Pengaturan Authenticator
+                </h3>
+                <button onclick="close2FAModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-xl"></i></button>
+            </div>
+            <div class="p-6">
+                <!-- Status: Belum Aktif -->
+                <div id="setup-2fa-inactive" class="space-y-4">
+                    <div class="bg-blue-50 border border-blue-100 rounded-xl p-3 text-xs text-blue-800">
+                        Scan QR Code di bawah menggunakan aplikasi <b>Google Authenticator</b>, <b>Microsoft Authenticator</b>, atau <b>Authy</b> di HP Anda.
+                    </div>
+                    <div class="flex flex-col items-center justify-center py-2">
+                        <div id="qrcode-2fa" class="p-3 bg-white border-2 border-slate-200 rounded-xl shadow-xs"></div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Atau masukkan kunci rahasia secara manual:</label>
+                        <div class="flex gap-2">
+                            <input type="text" id="setup-2fa-secret" readonly class="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-lg font-mono text-sm font-bold text-slate-700 text-center tracking-widest">
+                            <button type="button" onclick="copy2FASecret()" class="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-xs font-bold shrink-0" title="Salin Kunci">
+                                <i class="fa-regular fa-copy"></i> Salin
+                            </button>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1">Masukkan 6 Digit Kode Konfirmasi</label>
+                        <input type="text" id="setup-2fa-verify" maxlength="6" inputmode="numeric" class="w-full px-4 py-2.5 border border-slate-300 rounded-xl text-center text-lg font-bold tracking-[0.4em]" placeholder="000000">
+                    </div>
+                    <button onclick="activate2FA()" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-sm shadow-sm">
+                        <i class="fa-solid fa-check mr-1"></i> Aktifkan Authenticator
+                    </button>
+                </div>
+
+                <!-- Status: Sudah Aktif -->
+                <div id="setup-2fa-active" class="hidden text-center space-y-4 py-2">
+                    <div class="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto text-3xl">
+                        <i class="fa-solid fa-shield-check"></i>
+                    </div>
+                    <div>
+                        <h4 class="text-lg font-bold text-slate-800">Authenticator Aktif</h4>
+                        <p class="text-sm text-slate-500 mt-1">Akun Anda saat ini dilindungi dengan verifikasi 2 langkah (Kode 6 Digit) setiap kali login.</p>
+                    </div>
+                    <button onclick="disable2FA()" class="w-full py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold text-sm shadow-sm">
+                        <i class="fa-solid fa-shield-xmark mr-1"></i> Nonaktifkan Authenticator
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         // Deteksi apakah berjalan di dalam Google Apps Script Web App
         const isGoogleAppsScript = typeof google !== 'undefined' && google.script && google.script.run;
@@ -1127,6 +1210,71 @@
 
         // --- AUTH ---
         let currentUser = null;
+        let pendingAuthUser = null;
+        let temp2FASecret = '';
+
+        // --- ENGINE TOTP (RFC 6238 - Kompatibel Google Authenticator) ---
+        const BASE32_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+
+        function generateBase32Secret(length = 16) {
+            const bytes = new Uint8Array(length);
+            window.crypto.getRandomValues(bytes);
+            let secret = '';
+            for (let i = 0; i < length; i++) {
+                secret += BASE32_CHARS[bytes[i] % 32];
+            }
+            return secret;
+        }
+
+        function base32ToBytes(base32) {
+            let bits = '';
+            const clean = base32.toUpperCase().replace(/[^A-Z2-7]/g, '');
+            for (let i = 0; i < clean.length; i++) {
+                const val = BASE32_CHARS.indexOf(clean[i]);
+                if (val === -1) continue;
+                bits += val.toString(2).padStart(5, '0');
+            }
+            const bytes = [];
+            for (let i = 0; i + 8 <= bits.length; i += 8) {
+                bytes.push(parseInt(bits.slice(i, i + 8), 2));
+            }
+            return new Uint8Array(bytes);
+        }
+
+        async function generateTOTP(secret, timeStepOffset = 0) {
+            const keyBytes = base32ToBytes(secret);
+            const epoch = Math.floor(Date.now() / 1000);
+            const counter = Math.floor(epoch / 30) + timeStepOffset;
+
+            const counterBuffer = new ArrayBuffer(8);
+            const view = new DataView(counterBuffer);
+            view.setUint32(0, Math.floor(counter / Math.pow(2, 32)), false);
+            view.setUint32(4, counter >>> 0, false);
+
+            const cryptoKey = await window.crypto.subtle.importKey(
+                'raw', keyBytes, { name: 'HMAC', hash: 'SHA-1' }, false, ['sign']
+            );
+            const hmac = new Uint8Array(await window.crypto.subtle.sign('HMAC', cryptoKey, counterBuffer));
+            const offset = hmac[hmac.length - 1] & 0x0f;
+            const code = (
+                ((hmac[offset] & 0x7f) << 24) |
+                ((hmac[offset + 1] & 0xff) << 16) |
+                ((hmac[offset + 2] & 0xff) << 8) |
+                (hmac[offset + 3] & 0xff)
+            ) % 1000000;
+            return code.toString().padStart(6, '0');
+        }
+
+        async function verifyTOTP(secret, token) {
+            const cleanToken = (token || '').replace(/\s+/g, '');
+            if (!/^\d{6}$/.test(cleanToken)) return false;
+            // Cek rentang waktu -30 detik, saat ini, dan +30 detik untuk toleransi jam perangkat
+            for (let offset of [-1, 0, 1]) {
+                const expected = await generateTOTP(secret, offset);
+                if (expected === cleanToken) return true;
+            }
+            return false;
+        }
 
         function checkAuth() {
             const sessionStr = sessionStorage.getItem('erapor_session');
@@ -1144,28 +1292,12 @@
         }
 
         function toggleAuth(type) {
-            ['login', 'register', 'forgot'].forEach(t => document.getElementById(`form-${t}`).classList.add('hidden'));
+            ['login', 'register', 'forgot', '2fa'].forEach(t => document.getElementById(`form-${t}`).classList.add('hidden'));
             document.getElementById(`form-${type}`).classList.remove('hidden');
             if (type === 'register') toggleRegDetail();
-        }
-
-        function toggleRegDetail() {
-            const role = document.getElementById('reg-role').value;
-            const wrap = document.getElementById('wrap-reg-detail');
-            const label = document.getElementById('label-reg-detail');
-            const select = document.getElementById('reg-detail');
-            
-            if (role === 'Wali Kelas') {
-                wrap.classList.remove('hidden');
-                label.innerText = 'Pilih Kelas (Wali Kelas)';
-                select.innerHTML = appData.kelas.map(k => `<option value="Kelas ${k}">Kelas ${k}</option>`).join('');
-            } else if (role === 'Guru Mapel') {
-                wrap.classList.remove('hidden');
-                label.innerText = 'Pilih Mata Pelajaran';
-                select.innerHTML = appData.mapel.map(m => `<option value="${m}">${m}</option>`).join('');
-            } else {
-                wrap.classList.add('hidden');
-                select.innerHTML = `<option value="${role}">${role}</option>`;
+            if (type === '2fa') {
+                document.getElementById('login-2fa-code').value = '';
+                setTimeout(() => document.getElementById('login-2fa-code').focus(), 100);
             }
         }
 
@@ -1182,13 +1314,186 @@
             const password = document.getElementById('login-password').value;
             const user = appData.akun.find(u => u.username.toLowerCase() === username && u.password === password);
             if (user) {
-                sessionStorage.setItem('erapor_session', JSON.stringify(user));
-                document.getElementById('login-username').value = '';
-                document.getElementById('login-password').value = '';
-                checkAuth();
-                Swal.fire({ icon: 'success', title: 'Berhasil Masuk', text: `Selamat datang, ${user.nama}!`, timer: 1500, showConfirmButton: false });
+                if (user.twoFactorEnabled && user.twoFactorSecret) {
+                    pendingAuthUser = user;
+                    toggleAuth('2fa');
+                    return;
+                }
+                completeLogin(user);
             } else {
                 Swal.fire({ icon: 'error', title: 'Login Gagal', text: 'Username atau Kata Sandi salah!' });
+            }
+        }
+
+        function completeLogin(user) {
+            sessionStorage.setItem('erapor_session', JSON.stringify(user));
+            document.getElementById('login-username').value = '';
+            document.getElementById('login-password').value = '';
+            document.getElementById('login-2fa-code').value = '';
+            pendingAuthUser = null;
+            checkAuth();
+            Swal.fire({ icon: 'success', title: 'Berhasil Masuk', text: `Selamat datang, ${user.nama}!`, timer: 1500, showConfirmButton: false });
+        }
+
+        async function doVerify2FA() {
+            if (!pendingAuthUser) return toggleAuth('login');
+            const code = document.getElementById('login-2fa-code').value.trim();
+            if (!code || code.length !== 6) {
+                return Swal.fire({ icon: 'warning', title: 'Kode Tidak Lengkap', text: 'Masukkan 6 digit angka dari aplikasi Authenticator.' });
+            }
+            try {
+                const isValid = await verifyTOTP(pendingAuthUser.twoFactorSecret, code);
+                if (isValid) {
+                    completeLogin(pendingAuthUser);
+                } else {
+                    Swal.fire({ icon: 'error', title: 'Kode Salah', text: 'Kode Authenticator tidak cocok atau sudah kedaluwarsa. Coba kode terbaru.' });
+                }
+            } catch (err) {
+                Swal.fire({ icon: 'error', title: 'Error', text: 'Gagal memverifikasi kode Authenticator.' });
+            }
+        }
+
+        function cancel2FA() {
+            pendingAuthUser = null;
+            toggleAuth('login');
+        }
+
+        // --- PENGATURAN AUTHENTICATOR (2FA) PENGGUNA ---
+        function open2FAModal() {
+            if (!currentUser) return;
+            const userInDb = appData.akun.find(u => u.id === currentUser.id) || currentUser;
+            const modal = document.getElementById('modal-2fa-setup');
+            const divInactive = document.getElementById('setup-2fa-inactive');
+            const divActive = document.getElementById('setup-2fa-active');
+
+            if (userInDb.twoFactorEnabled && userInDb.twoFactorSecret) {
+                divInactive.classList.add('hidden');
+                divActive.classList.remove('hidden');
+            } else {
+                divActive.classList.add('hidden');
+                divInactive.classList.remove('hidden');
+                temp2FASecret = generateBase32Secret(16);
+                document.getElementById('setup-2fa-secret').value = temp2FASecret;
+                document.getElementById('setup-2fa-verify').value = '';
+
+                const qrContainer = document.getElementById('qrcode-2fa');
+                qrContainer.innerHTML = '';
+                const label = encodeURIComponent(`E-Rapor SDN16:${userInDb.username}`);
+                const issuer = encodeURIComponent('E-Rapor SDN 16 Namrole');
+                const otpauthUrl = `otpauth://totp/${label}?secret=${temp2FASecret}&issuer=${issuer}`;
+
+                if (typeof QRCode !== 'undefined') {
+                    new QRCode(qrContainer, {
+                        text: otpauthUrl,
+                        width: 170,
+                        height: 170,
+                        colorDark: '#0f172a',
+                        colorLight: '#ffffff'
+                    });
+                } else {
+                    qrContainer.innerHTML = '<p class="text-xs text-slate-500 p-4">QR tidak termuat, gunakan kunci manual di bawah.</p>';
+                }
+            }
+            modal.classList.remove('hidden');
+        }
+
+        function close2FAModal() {
+            document.getElementById('modal-2fa-setup').classList.add('hidden');
+        }
+
+        function copy2FASecret() {
+            const input = document.getElementById('setup-2fa-secret');
+            input.select();
+            input.setSelectionRange(0, 99999);
+            document.execCommand('copy');
+            Swal.fire({ icon: 'success', title: 'Disalin!', text: 'Kunci rahasia berhasil disalin ke clipboard.', timer: 1200, showConfirmButton: false });
+        }
+
+        async function activate2FA() {
+            const code = document.getElementById('setup-2fa-verify').value.trim();
+            if (!code || code.length !== 6) {
+                return Swal.fire('Perhatian', 'Masukkan 6 digit kode dari aplikasi Authenticator untuk konfirmasi.', 'warning');
+            }
+            const isValid = await verifyTOTP(temp2FASecret, code);
+            if (!isValid) {
+                return Swal.fire('Kode Tidak Cocok', 'Pastikan Anda memasukkan 6 digit kode terbaru dari aplikasi Authenticator.', 'error');
+            }
+            const idx = appData.akun.findIndex(u => u.id === currentUser.id);
+            if (idx !== -1) {
+                appData.akun[idx].twoFactorEnabled = true;
+                appData.akun[idx].twoFactorSecret = temp2FASecret;
+                currentUser = appData.akun[idx];
+                sessionStorage.setItem('erapor_session', JSON.stringify(currentUser));
+                saveData();
+                close2FAModal();
+                Swal.fire('Berhasil!', 'Kode Authenticator (2FA) telah aktif untuk akun Anda.', 'success');
+            }
+        }
+
+        function disable2FA() {
+            Swal.fire({
+                title: 'Nonaktifkan Authenticator?',
+                text: 'Akun Anda tidak akan lagi meminta kode 6 digit saat login.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                confirmButtonText: 'Ya, Nonaktifkan',
+                cancelButtonText: 'Batal'
+            }).then((res) => {
+                if (res.isConfirmed) {
+                    const idx = appData.akun.findIndex(u => u.id === currentUser.id);
+                    if (idx !== -1) {
+                        appData.akun[idx].twoFactorEnabled = false;
+                        appData.akun[idx].twoFactorSecret = '';
+                        currentUser = appData.akun[idx];
+                        sessionStorage.setItem('erapor_session', JSON.stringify(currentUser));
+                        saveData();
+                        close2FAModal();
+                        Swal.fire('Dinonaktifkan', 'Kode Authenticator telah dinonaktifkan.', 'success');
+                    }
+                }
+            });
+        }
+
+        function resetUser2FA(id) {
+            Swal.fire({
+                title: 'Reset Authenticator Pengguna?',
+                text: 'Fitur 2FA untuk akun ini akan dinonaktifkan agar pengguna bisa login kembali tanpa kode Authenticator.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Ya, Reset 2FA',
+                cancelButtonText: 'Batal'
+            }).then((res) => {
+                if (res.isConfirmed) {
+                    const idx = appData.akun.findIndex(u => u.id === id);
+                    if (idx !== -1) {
+                        appData.akun[idx].twoFactorEnabled = false;
+                        appData.akun[idx].twoFactorSecret = '';
+                        saveData();
+                        renderAkun();
+                        Swal.fire('Berhasil', 'Authenticator pengguna telah direset.', 'success');
+                    }
+                }
+            });
+        }
+
+        function toggleRegDetail() {
+            const role = document.getElementById('reg-role').value;
+            const wrap = document.getElementById('wrap-reg-detail');
+            const label = document.getElementById('label-reg-detail');
+            const select = document.getElementById('reg-detail');
+
+            if (role === 'Wali Kelas') {
+                wrap.classList.remove('hidden');
+                label.innerText = 'Pilih Kelas (Wali Kelas)';
+                select.innerHTML = appData.kelas.map(k => `<option value="Kelas ${k}">Kelas ${k}</option>`).join('');
+            } else if (role === 'Guru Mapel') {
+                wrap.classList.remove('hidden');
+                label.innerText = 'Pilih Mata Pelajaran';
+                select.innerHTML = appData.mapel.map(m => `<option value="${m}">${m}</option>`).join('');
+            } else {
+                wrap.classList.add('hidden');
+                select.innerHTML = `<option value="${role}">${role}</option>`;
             }
         }
 
@@ -1198,78 +1503,145 @@
             const password = document.getElementById('reg-password').value;
             const role = document.getElementById('reg-role').value;
             const tugas = document.getElementById('reg-detail').value;
-            if (!nama || !username || !password) return Swal.fire('Gagal', 'Semua kolom wajib diisi!', 'warning');
-            if (appData.akun.some(u => u.username === username)) return Swal.fire('Gagal', 'Username sudah terpakai!', 'error');
-            appData.akun.push({ id: Date.now(), nama, username, password, role, tugas: tugas });
+
+            if (!nama || !username || !password) {
+                return Swal.fire({ icon: 'warning', title: 'Gagal', text: 'Semua kolom wajib diisi!' });
+            }
+            if (appData.akun.some(u => u.username.toLowerCase() === username)) {
+                return Swal.fire({ icon: 'error', title: 'Gagal', text: 'Username sudah terpakai!' });
+            }
+
+            appData.akun.push({ id: Date.now(), nama, username, password, role, tugas });
             saveData();
-            Swal.fire({ icon: 'success', title: 'Berhasil', text: 'Akun dibuat, silakan login.', timer: 1500, showConfirmButton: false });
+
+            document.getElementById('reg-nama').value = '';
+            document.getElementById('reg-username').value = '';
+            document.getElementById('reg-password').value = '';
+            Swal.fire({ icon: 'success', title: 'Berhasil', text: 'Akun berhasil dibuat. Silakan Login.', timer: 2000, showConfirmButton: false });
             toggleAuth('login');
         }
 
         function doResetPassword() {
             const user = document.getElementById('forgot-username').value.trim().toLowerCase();
-            const code = document.getElementById('forgot-code').value;
+            const code = document.getElementById('forgot-code').value.trim();
             const newpass = document.getElementById('forgot-newpass').value;
-            if (code !== "NAMROLE16") return Swal.fire('Akses Ditolak', 'Kode Keamanan Sekolah salah!', 'error');
-            const idx = appData.akun.findIndex(u => u.username === user);
+
+            if (!user || !code || !newpass) {
+                return Swal.fire({ icon: 'warning', title: 'Gagal', text: 'Lengkapi semua kolom form!' });
+            }
+            if (code !== 'NAMROLE16') {
+                return Swal.fire({ icon: 'error', title: 'Akses Ditolak', text: 'Kode Keamanan Sekolah salah!' });
+            }
+
+            const idx = appData.akun.findIndex(u => u.username.toLowerCase() === user);
             if (idx !== -1) {
                 appData.akun[idx].password = newpass;
                 saveData();
-                Swal.fire('Berhasil', 'Kata sandi diperbarui.', 'success');
+                document.getElementById('forgot-username').value = '';
+                document.getElementById('forgot-code').value = '';
+                document.getElementById('forgot-newpass').value = '';
+                Swal.fire({ icon: 'success', title: 'Berhasil', text: 'Kata sandi berhasil direset. Silakan login kembali.' });
                 toggleAuth('login');
             } else {
-                Swal.fire('Tidak Ditemukan', 'Username tidak terdaftar.', 'error');
+                Swal.fire({ icon: 'error', title: 'Tidak Ditemukan', text: 'Username tidak terdaftar di sistem.' });
             }
         }
 
         function doLogout() {
-            sessionStorage.removeItem('erapor_session');
-            currentUser = null;
-            checkAuth();
+            Swal.fire({
+                title: 'Konfirmasi',
+                text: 'Apakah Anda yakin ingin keluar dari sistem?',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Ya, Keluar',
+                cancelButtonText: 'Batal'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    sessionStorage.removeItem('erapor_session');
+                    currentUser = null;
+                    checkAuth();
+                }
+            });
         }
 
         function applyRoleAccess() {
             if (!currentUser) return;
-            const isAdmin = currentUser.role === 'Admin';
-            document.querySelectorAll('.role-admin-only').forEach(el => el.classList.toggle('hidden', !isAdmin));
+            const role = currentUser.role;
+
+            document.querySelectorAll('.role-admin-only').forEach(el => {
+                el.classList.toggle('hidden', role !== 'Admin');
+            });
+
+            const navMapel = document.getElementById('nav-mapel');
+            const navKelas = document.getElementById('nav-kelas');
+            const navEkskul = document.getElementById('nav-ekskul');
+            const navPengaturan = document.getElementById('nav-pengaturan');
+            const navNilai = document.getElementById('nav-input-nilai');
+
+            if (navMapel && navKelas && navPengaturan && navNilai) {
+                if (role === 'Kepala Sekolah') {
+                    navMapel.parentElement.classList.add('hidden');
+                    navKelas.parentElement.classList.add('hidden');
+                    if (navEkskul) navEkskul.parentElement.classList.add('hidden');
+                    navPengaturan.parentElement.classList.add('hidden');
+                    navNilai.parentElement.classList.add('hidden');
+                } else if (role === 'Wali Kelas' || role === 'Guru Mapel') {
+                    navMapel.parentElement.classList.add('hidden');
+                    navKelas.parentElement.classList.add('hidden');
+                    if (navEkskul) navEkskul.parentElement.classList.add('hidden');
+                    navPengaturan.parentElement.classList.add('hidden');
+                    navNilai.parentElement.classList.remove('hidden');
+                } else {
+                    navMapel.parentElement.classList.remove('hidden');
+                    navKelas.parentElement.classList.remove('hidden');
+                    if (navEkskul) navEkskul.parentElement.classList.remove('hidden');
+                    navPengaturan.parentElement.classList.remove('hidden');
+                    navNilai.parentElement.classList.remove('hidden');
+                }
+            }
+        }
+
+        // --- SIDEBAR & NAVIGASI ---
+        function toggleSidebar() {
+            const sidebar = document.getElementById('main-sidebar');
+            const overlay = document.getElementById('sidebar-overlay');
+            sidebar.classList.toggle('-translate-x-full');
+            overlay.classList.toggle('hidden');
         }
 
         function navigate(pageId) {
-            document.querySelectorAll('.page-view').forEach(el => {
-                el.classList.add('hidden');
-                el.classList.remove('animate-fade-in');
-            });
-            const target = document.getElementById('view-' + pageId);
-            if (target) {
-                target.classList.remove('hidden');
-                target.classList.add('animate-fade-in');
-            }
+            document.querySelectorAll('.page-view').forEach(el => el.classList.add('hidden'));
+            const viewTarget = document.getElementById('view-' + pageId);
+            if (viewTarget) viewTarget.classList.remove('hidden');
+
             document.querySelectorAll('.nav-link').forEach(el => el.classList.remove('active'));
-            const nav = document.getElementById('nav-' + pageId);
-            if (nav) nav.classList.add('active');
+            const activeNav = document.getElementById('nav-' + pageId);
+            if (activeNav) activeNav.classList.add('active');
 
             const titles = {
                 'dashboard': 'Dashboard',
                 'siswa': 'Data Peserta Didik',
-                'kelas': 'Data Kelas',
+                'kelas': 'Pengelolaan Kelas',
                 'mapel': 'Mata Pelajaran',
                 'ekskul': 'Kegiatan Ekstrakurikuler',
-                'input-nilai': 'Input Nilai & Ekstrakurikuler',
-                'rapor': 'Cetak Rapor',
-                'rangking': 'Daftar Rangking',
+                'input-nilai': 'Input Nilai Siswa',
+                'rapor': 'Cetak Rapor Kurikulum Merdeka',
+                'rangking': 'Daftar Peringkat Siswa',
                 'pengaturan': 'Pengaturan Sekolah',
-                'akun': 'Pengaturan Akun',
-                'backup': 'Backup & Restore',
+                'akun': 'Manajemen Akun Pengguna',
+                'backup': 'Sistem Backup & Restore',
                 'panduan': 'Panduan Penggunaan'
             };
             document.getElementById('page-title').innerText = titles[pageId] || 'E-Rapor KM';
 
-            // Tutup sidebar otomatis saat memilih menu di layar HP/Mobile
-            const sidebar = document.getElementById('main-sidebar');
-            const overlay = document.getElementById('sidebar-overlay');
-            if (window.innerWidth < 1024 && !sidebar.classList.contains('-translate-x-full')) {
-                sidebar.classList.add('-translate-x-full');
-                overlay.classList.add('hidden');
+            // Tutup sidebar otomatis di layar mobile setelah memilih menu
+            if (window.innerWidth < 1024) {
+                const sidebar = document.getElementById('main-sidebar');
+                const overlay = document.getElementById('sidebar-overlay');
+                if (sidebar && !sidebar.classList.contains('-translate-x-full')) {
+                    sidebar.classList.add('-translate-x-full');
+                    if (overlay) overlay.classList.add('hidden');
+                }
             }
 
             if (pageId === 'dashboard') updateDashboard();
@@ -1284,21 +1656,19 @@
             if (pageId === 'akun') renderAkun();
         }
 
-        function toggleSidebar() {
-            const sidebar = document.getElementById('main-sidebar');
-            const overlay = document.getElementById('sidebar-overlay');
-            sidebar.classList.toggle('-translate-x-full');
-            overlay.classList.toggle('hidden');
-        }
-
+        // --- DASHBOARD ---
         function updateDashboard() {
-            document.getElementById('stat-siswa').innerText = appData.siswa.length;
-            document.getElementById('stat-kelas').innerText = appData.kelas.length;
-            document.getElementById('stat-mapel').innerText = appData.mapel.length;
-            document.getElementById('stat-nilai').innerText = Object.keys(appData.nilai).length;
+            const elSiswa = document.getElementById('stat-siswa');
+            const elKelas = document.getElementById('stat-kelas');
+            const elMapel = document.getElementById('stat-mapel');
+            const elNilai = document.getElementById('stat-nilai');
+            if (elSiswa) elSiswa.innerText = (appData.siswa || []).length;
+            if (elKelas) elKelas.innerText = (appData.kelas || []).length;
+            if (elMapel) elMapel.innerText = (appData.mapel || []).length;
+            if (elNilai) elNilai.innerText = Object.keys(appData.nilai || {}).length;
         }
 
-        // --- PENGATURAN ---
+        // --- PENGATURAN SEKOLAH ---
         function renderPengaturan() {
             document.getElementById('set-sekolah').value = appData.sekolah || '';
             document.getElementById('set-alamat').value = appData.alamatSekolah || '';
@@ -1321,9 +1691,8 @@
             appData.semester = document.getElementById('set-semester').value;
             appData.tempatTanggalRapor = document.getElementById('set-ttd-rapor').value.trim();
             appData.gasUrl = document.getElementById('set-gas-url').value.trim();
-
             saveData();
-            Swal.fire({ icon: 'success', title: 'Tersimpan', text: 'Pengaturan sekolah diperbarui.', timer: 1500, showConfirmButton: false });
+            Swal.fire({ icon: 'success', title: 'Tersimpan', text: 'Pengaturan sekolah berhasil diperbarui.', timer: 1500, showConfirmButton: false });
         }
 
         // --- AKUN ---
@@ -1332,11 +1701,15 @@
             tbody.innerHTML = appData.akun.map((a, idx) => `
                 <tr class="hover:bg-slate-50">
                     <td class="p-4 border-b">${idx + 1}</td>
-                    <td class="p-4 border-b font-medium">${a.nama}</td>
+                    <td class="p-4 border-b font-medium">
+                        ${a.nama}
+                        ${a.twoFactorEnabled ? '<span class="ml-1.5 px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-bold rounded-full" title="Authenticator 2FA Aktif"><i class="fa-solid fa-shield-halved"></i> 2FA</span>' : ''}
+                    </td>
                     <td class="p-4 border-b text-blue-700">${a.username}</td>
                     <td class="p-4 border-b">${a.role}</td>
                     <td class="p-4 border-b">${a.tugas || '-'}</td>
                     <td class="p-4 border-b text-center">
+                        ${a.twoFactorEnabled ? `<button onclick="resetUser2FA(${a.id})" class="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 mr-1" title="Reset 2FA Pengguna"><i class="fa-solid fa-shield-xmark"></i></button>` : ''}
                         <button onclick="openAkunModal(${a.id})" class="w-8 h-8 rounded-full bg-amber-100 text-amber-600 mr-1"><i class="fa-solid fa-pen"></i></button>
                         ${a.username !== 'admin' ? `<button onclick="deleteAkun(${a.id})" class="w-8 h-8 rounded-full bg-red-100 text-red-600"><i class="fa-solid fa-trash"></i></button>` : ''}
                     </td>
@@ -1348,14 +1721,16 @@
             document.getElementById('modal-akun').classList.remove('hidden');
             if (id) {
                 const a = appData.akun.find(x => x.id === id);
+                document.getElementById('modal-akun-title').innerText = 'Edit Akun Pengguna';
                 document.getElementById('form-akun-id').value = a.id;
                 document.getElementById('form-akun-nama').value = a.nama;
                 document.getElementById('form-akun-username').value = a.username;
                 document.getElementById('form-akun-password').value = '';
                 document.getElementById('form-akun-role').value = a.role;
                 toggleAkunDetail();
-                document.getElementById('form-akun-detail').value = a.tugas;
+                if (a.tugas) document.getElementById('form-akun-detail').value = a.tugas;
             } else {
+                document.getElementById('modal-akun-title').innerText = 'Tambah Pengguna Baru';
                 document.getElementById('form-akun-id').value = '';
                 document.getElementById('form-akun-nama').value = '';
                 document.getElementById('form-akun-username').value = '';
@@ -1365,132 +1740,219 @@
             }
         }
 
-        function closeAkunModal() { document.getElementById('modal-akun').classList.add('hidden'); }
+        function closeAkunModal() {
+            document.getElementById('modal-akun').classList.add('hidden');
+        }
 
         function toggleAkunDetail() {
             const role = document.getElementById('form-akun-role').value;
             const wrap = document.getElementById('wrap-akun-detail');
+            const label = document.getElementById('label-akun-detail');
             const select = document.getElementById('form-akun-detail');
-            if (role === 'Wali Kelas') {
+
+            if (role === 'Admin') {
+                wrap.classList.add('hidden');
+                select.innerHTML = '<option value="Operator Sekolah">Operator Sekolah</option>';
+            } else if (role === 'Wali Kelas') {
                 wrap.classList.remove('hidden');
+                label.innerText = 'Pilih Kelas (Tugas Wali Kelas)';
                 select.innerHTML = appData.kelas.map(k => `<option value="Kelas ${k}">Kelas ${k}</option>`).join('');
             } else if (role === 'Guru Mapel') {
                 wrap.classList.remove('hidden');
+                label.innerText = 'Pilih Mata Pelajaran';
                 select.innerHTML = appData.mapel.map(m => `<option value="${m}">${m}</option>`).join('');
             } else {
                 wrap.classList.add('hidden');
-                select.innerHTML = `<option value="${role}">${role}</option>`;
+                select.innerHTML = '<option value="Pemantauan">Pemantauan</option>';
             }
         }
 
         function saveAkun() {
             const id = document.getElementById('form-akun-id').value;
             const nama = document.getElementById('form-akun-nama').value.trim();
-            const username = document.getElementById('form-akun-username').value.trim().toLowerCase();
+            const username = document.getElementById('form-akun-username').value.trim().replace(/\s+/g, '').toLowerCase();
             let password = document.getElementById('form-akun-password').value;
             const role = document.getElementById('form-akun-role').value;
             const tugas = document.getElementById('form-akun-detail').value;
 
-            if (!nama || !username) return Swal.fire('Perhatian', 'Nama dan username wajib diisi.', 'warning');
+            if (!nama || !username) {
+                return Swal.fire({ icon: 'warning', title: 'Data tidak lengkap', text: 'Nama Lengkap dan Username wajib diisi!' });
+            }
+
             if (id) {
                 const idx = appData.akun.findIndex(x => x.id == id);
-                if (!password) password = appData.akun[idx].password;
-                appData.akun[idx] = { ...appData.akun[idx], nama, username, password, role, tugas };
+                const cur = appData.akun[idx];
+                if (!password) password = cur.password;
+                if (appData.akun.some(x => x.username.toLowerCase() === username && x.id != id)) {
+                    return Swal.fire({ icon: 'error', title: 'Username Terpakai', text: 'Silakan pilih username lain.' });
+                }
+                appData.akun[idx] = {
+                    ...cur,
+                    nama,
+                    username: cur.username === 'admin' ? 'admin' : username,
+                    password,
+                    role: cur.username === 'admin' ? 'Admin' : role,
+                    tugas: cur.username === 'admin' ? 'Operator Sekolah' : tugas
+                };
             } else {
-                if (!password) return Swal.fire('Perhatian', 'Password wajib diisi.', 'warning');
+                if (!password) {
+                    return Swal.fire({ icon: 'warning', title: 'Password Kosong', text: 'Password wajib diisi untuk pengguna baru!' });
+                }
+                if (appData.akun.some(x => x.username.toLowerCase() === username)) {
+                    return Swal.fire({ icon: 'error', title: 'Username Terpakai', text: 'Silakan pilih username lain.' });
+                }
                 appData.akun.push({ id: Date.now(), nama, username, password, role, tugas });
             }
             saveData();
             closeAkunModal();
             renderAkun();
+            Swal.fire({ icon: 'success', title: 'Tersimpan', text: 'Data akun berhasil disimpan.', timer: 1500, showConfirmButton: false });
         }
 
         function deleteAkun(id) {
-            appData.akun = appData.akun.filter(x => x.id !== id);
-            saveData();
-            renderAkun();
+            Swal.fire({
+                title: 'Hapus akun?',
+                text: 'Akun yang dihapus tidak akan dapat login kembali.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                confirmButtonText: 'Ya, hapus!',
+                cancelButtonText: 'Batal'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    appData.akun = appData.akun.filter(x => x.id !== id);
+                    saveData();
+                    renderAkun();
+                    Swal.fire('Terhapus!', 'Akun pengguna telah dihapus.', 'success');
+                }
+            });
         }
 
         function downloadAkunCSV() {
-            let csv = "data:text/csv;charset=utf-8,Nama Lengkap,Username,Kata Sandi,Peran,Tugas\n";
-            appData.akun.forEach(a => csv += `"${a.nama}","${a.username}","${a.password}","${a.role}","${a.tugas}"\n`);
-            const link = document.createElement("a");
+            let csv = 'data:text/csv;charset=utf-8,Nama Lengkap,Username,Kata Sandi,Peran,Tugas\n';
+            appData.akun.forEach(a => {
+                const esc = (s) => `"${(s || '').toString().replace(/"/g, '""')}"`;
+                csv += `${esc(a.nama)},${esc(a.username)},${esc(a.password)},${esc(a.role)},${esc(a.tugas)}\n`;
+            });
+            const link = document.createElement('a');
             link.href = encodeURI(csv);
-            link.download = "data_akun_erapor.csv";
+            link.download = 'data_akun_pengguna_erapor.csv';
             link.click();
         }
 
         function uploadAkunCSV() {
-            const file = document.getElementById('input-csv-akun').files[0];
+            const fileInput = document.getElementById('input-csv-akun');
+            const file = fileInput.files[0];
             if (!file) return;
             const reader = new FileReader();
-            reader.onload = (e) => {
+            reader.onload = function(e) {
                 const lines = e.target.result.split('\n');
+                let added = 0, updated = 0;
                 for (let i = 1; i < lines.length; i++) {
-                    const cols = lines[i].split(',');
-                    if (cols.length >= 4 && cols[1].trim()) {
-                        const nama = cols[0].replace(/"/g, '').trim();
-                        const username = cols[1].replace(/"/g, '').trim().toLowerCase();
-                        const password = cols[2].replace(/"/g, '').trim();
-                        const role = cols[3].replace(/"/g, '').trim();
-                        const tugas = cols[4] ? cols[4].replace(/"/g, '').trim() : '';
-                        const ex = appData.akun.find(u => u.username === username);
-                        if (ex) { ex.nama = nama; ex.password = password; }
-                        else appData.akun.push({ id: Date.now() + i, nama, username, password, role, tugas });
+                    const line = lines[i].trim();
+                    if (!line) continue;
+                    const cols = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+                    if (cols.length >= 4) {
+                        const clean = (c) => (c || '').replace(/^"|"$/g, '').replace(/""/g, '"').trim();
+                        const nama = clean(cols[0]);
+                        const username = clean(cols[1]).replace(/\s+/g, '').toLowerCase();
+                        const password = clean(cols[2]);
+                        let role = clean(cols[3]);
+                        const tugas = clean(cols[4]);
+                        if (!['Admin', 'Wali Kelas', 'Guru Mapel', 'Kepala Sekolah'].includes(role)) role = 'Guru Mapel';
+                        if (nama && username && password) {
+                            const existing = appData.akun.find(u => u.username.toLowerCase() === username);
+                            if (existing) {
+                                existing.nama = nama;
+                                existing.password = password;
+                                if (existing.username !== 'admin') { existing.role = role; existing.tugas = tugas; }
+                                updated++;
+                            } else {
+                                appData.akun.push({ id: Date.now() + i, nama, username, password, role, tugas });
+                                added++;
+                            }
+                        }
                     }
                 }
                 saveData();
                 renderAkun();
-                Swal.fire('Berhasil', 'Data akun diimpor.', 'success');
+                Swal.fire('Berhasil', `${added} akun baru ditambahkan, ${updated} akun diperbarui.`, 'success');
+                fileInput.value = '';
             };
             reader.readAsText(file);
         }
 
-        // --- SISWA ---
+        // --- DATA SISWA ---
         function populateFilterKelas() {
-            document.getElementById('filter-kelas').innerHTML = '<option value="">Semua Kelas</option>' + appData.kelas.map(k => `<option value="${k}">Kelas ${k}</option>`).join('');
-            document.getElementById('form-siswa-kelas').innerHTML = appData.kelas.map(k => `<option value="${k}">Kelas ${k}</option>`).join('');
+            const filter = document.getElementById('filter-kelas');
+            const formKelas = document.getElementById('form-siswa-kelas');
+            filter.innerHTML = '<option value="">Semua Kelas</option>' + appData.kelas.map(k => `<option value="${k}">Kelas ${k}</option>`).join('');
+            formKelas.innerHTML = appData.kelas.map(k => `<option value="${k}">Kelas ${k}</option>`).join('');
         }
 
         function renderSiswa() {
+            const tbody = document.getElementById('table-siswa');
             const search = document.getElementById('search-siswa').value.toLowerCase();
-            const fKelas = document.getElementById('filter-kelas').value;
-            const filtered = appData.siswa.filter(s => (s.nama.toLowerCase().includes(search) || s.nisn.includes(search)) && (!fKelas || s.kelas === fKelas));
-            document.getElementById('table-siswa').innerHTML = filtered.map((s, idx) => `
+            const filterKelas = document.getElementById('filter-kelas').value;
+
+            const filtered = appData.siswa.filter(s => {
+                const matchSearch = s.nama.toLowerCase().includes(search) || (s.nisn || '').includes(search);
+                const matchKelas = filterKelas ? s.kelas === filterKelas : true;
+                return matchSearch && matchKelas;
+            });
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-slate-400">Tidak ada data siswa ditemukan.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = filtered.map((s, idx) => `
                 <tr class="hover:bg-slate-50">
                     <td class="p-4 border-b">${idx + 1}</td>
                     <td class="p-4 border-b font-medium text-blue-700">${s.nisn}</td>
                     <td class="p-4 border-b">${s.nama}</td>
                     <td class="p-4 border-b"><span class="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full font-semibold">Kelas ${s.kelas}</span></td>
                     <td class="p-4 border-b text-center">
-                        <button onclick="openSiswaModal(${s.id})" class="w-8 h-8 rounded-full bg-amber-100 text-amber-600 mr-1"><i class="fa-solid fa-pen"></i></button>
-                        <button onclick="deleteSiswa(${s.id})" class="w-8 h-8 rounded-full bg-red-100 text-red-600"><i class="fa-solid fa-trash"></i></button>
+                        <button onclick="openSiswaModal(${s.id})" class="w-8 h-8 rounded-full bg-amber-100 text-amber-600 hover:bg-amber-200 mr-1"><i class="fa-solid fa-pen"></i></button>
+                        <button onclick="deleteSiswa(${s.id})" class="w-8 h-8 rounded-full bg-red-100 text-red-600 hover:bg-red-200"><i class="fa-solid fa-trash"></i></button>
                     </td>
                 </tr>
             `).join('');
         }
 
         function openSiswaModal(id = null) {
+            populateFilterKelas();
             document.getElementById('modal-siswa').classList.remove('hidden');
             if (id) {
                 const s = appData.siswa.find(x => x.id === id);
+                document.getElementById('modal-siswa-title').innerText = 'Edit Data Siswa';
                 document.getElementById('form-siswa-id').value = s.id;
                 document.getElementById('form-siswa-nisn').value = s.nisn;
                 document.getElementById('form-siswa-nama').value = s.nama;
                 document.getElementById('form-siswa-kelas').value = s.kelas;
             } else {
+                document.getElementById('modal-siswa-title').innerText = 'Tambah Data Siswa';
                 document.getElementById('form-siswa-id').value = '';
                 document.getElementById('form-siswa-nisn').value = '';
                 document.getElementById('form-siswa-nama').value = '';
+                if (appData.kelas.length > 0) document.getElementById('form-siswa-kelas').value = appData.kelas[0];
             }
         }
-        function closeSiswaModal() { document.getElementById('modal-siswa').classList.add('hidden'); }
+
+        function closeSiswaModal() {
+            document.getElementById('modal-siswa').classList.add('hidden');
+        }
+
         function saveSiswa() {
             const id = document.getElementById('form-siswa-id').value;
             const nisn = document.getElementById('form-siswa-nisn').value.trim();
             const nama = document.getElementById('form-siswa-nama').value.trim();
             const kelas = document.getElementById('form-siswa-kelas').value;
-            if (!nisn || !nama) return;
+
+            if (!nisn || !nama || !kelas) {
+                return Swal.fire({ icon: 'warning', title: 'Data belum lengkap', text: 'Mohon isi NISN, Nama, dan Kelas.' });
+            }
+
             if (id) {
                 const idx = appData.siswa.findIndex(x => x.id == id);
                 appData.siswa[idx] = { id: parseInt(id), nisn, nama, kelas };
@@ -1500,69 +1962,134 @@
             saveData();
             closeSiswaModal();
             renderSiswa();
+            Swal.fire({ icon: 'success', title: 'Tersimpan', text: 'Data siswa berhasil disimpan.', timer: 1500, showConfirmButton: false });
         }
+
         function deleteSiswa(id) {
-            appData.siswa = appData.siswa.filter(x => x.id !== id);
-            saveData();
-            renderSiswa();
+            Swal.fire({
+                title: 'Hapus data siswa?',
+                text: 'Data nilai terkait siswa ini juga akan ikut terhapus.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                confirmButtonText: 'Ya, hapus!',
+                cancelButtonText: 'Batal'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    appData.siswa = appData.siswa.filter(x => x.id !== id);
+                    Object.keys(appData.nilai).forEach(k => { if (k.startsWith(id + '_')) delete appData.nilai[k]; });
+                    saveData();
+                    renderSiswa();
+                    Swal.fire('Terhapus!', 'Data siswa telah dihapus.', 'success');
+                }
+            });
         }
 
         function downloadSiswaCSV() {
-            let csv = "data:text/csv;charset=utf-8,NISN,Nama Lengkap,Kelas\n";
-            appData.siswa.forEach(s => csv += `${s.nisn},"${s.nama}",${s.kelas}\n`);
-            const link = document.createElement("a");
+            let csv = 'data:text/csv;charset=utf-8,NISN,Nama Lengkap,Kelas\n';
+            appData.siswa.forEach(s => { csv += `${s.nisn},"${s.nama}",${s.kelas}\n`; });
+            const link = document.createElement('a');
             link.href = encodeURI(csv);
-            link.download = "data_siswa_erapor.csv";
+            link.download = 'data_siswa_erapor.csv';
             link.click();
         }
 
         function uploadSiswaCSV() {
-            const file = document.getElementById('input-csv-siswa').files[0];
+            const fileInput = document.getElementById('input-csv-siswa');
+            const file = fileInput.files[0];
             if (!file) return;
             const reader = new FileReader();
-            reader.onload = (e) => {
+            reader.onload = function(e) {
                 const lines = e.target.result.split('\n');
+                let added = 0, updated = 0;
                 for (let i = 1; i < lines.length; i++) {
-                    const cols = lines[i].split(',');
-                    if (cols.length >= 3 && cols[0].trim()) {
+                    const line = lines[i].trim();
+                    if (!line) continue;
+                    const cols = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+                    if (cols.length >= 3) {
                         const nisn = cols[0].replace(/"/g, '').trim();
                         const nama = cols[1].replace(/"/g, '').trim();
                         const kelas = cols[2].replace(/"/g, '').trim();
-                        const ex = appData.siswa.find(s => s.nisn === nisn);
-                        if (ex) { ex.nama = nama; ex.kelas = kelas; }
-                        else appData.siswa.push({ id: Date.now() + i, nisn, nama, kelas });
+                        if (nisn && nama && kelas) {
+                            const existing = appData.siswa.find(s => s.nisn === nisn);
+                            if (existing) { existing.nama = nama; existing.kelas = kelas; updated++; }
+                            else { appData.siswa.push({ id: Date.now() + i, nisn, nama, kelas }); added++; }
+                            if (!appData.kelas.includes(kelas)) appData.kelas.push(kelas);
+                        }
                     }
                 }
                 saveData();
+                populateFilterKelas();
                 renderSiswa();
-                Swal.fire('Berhasil', 'Data siswa diimpor.', 'success');
+                Swal.fire('Berhasil', `${added} siswa baru ditambahkan, ${updated} siswa diperbarui.`, 'success');
+                fileInput.value = '';
             };
             reader.readAsText(file);
         }
 
-        // --- KELAS & MAPEL ---
+        // --- DATA KELAS ---
         function renderKelas() {
-            document.getElementById('grid-kelas').innerHTML = appData.kelas.map((k, idx) => `
-                <div class="border border-slate-200 rounded-lg p-4 bg-slate-50 flex justify-between items-center">
-                    <span class="font-semibold text-slate-700">Kelas ${k}</span>
-                    <button onclick="appData.kelas.splice(${idx},1);saveData();renderKelas();" class="text-slate-400 hover:text-red-500"><i class="fa-solid fa-trash"></i></button>
+            const grid = document.getElementById('grid-kelas');
+            if (appData.kelas.length === 0) {
+                grid.innerHTML = '<p class="text-slate-400 col-span-full">Belum ada data kelas.</p>';
+                return;
+            }
+            grid.innerHTML = appData.kelas.map((k, idx) => `
+                <div class="border border-slate-200 rounded-lg p-4 bg-slate-50 flex justify-between items-center hover:shadow-md transition-shadow">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded bg-blue-600 text-white flex items-center justify-center font-bold">${k}</div>
+                        <span class="font-semibold text-slate-700">Kelas ${k}</span>
+                    </div>
+                    <button onclick="hapusKelas(${idx})" class="text-slate-400 hover:text-red-500" title="Hapus"><i class="fa-solid fa-trash"></i></button>
                 </div>
             `).join('');
         }
+
         function addKelas() {
-            Swal.fire({ title: 'Tambah Kelas', input: 'text', showCancelButton: true }).then(r => {
-                if (r.isConfirmed && r.value) { appData.kelas.push(r.value.trim().toUpperCase()); saveData(); renderKelas(); }
+            Swal.fire({
+                title: 'Tambah Kelas',
+                input: 'text',
+                inputPlaceholder: 'Contoh: I, II, III atau 1A, 1B',
+                showCancelButton: true,
+                confirmButtonText: 'Simpan',
+                cancelButtonText: 'Batal'
+            }).then((result) => {
+                if (result.isConfirmed && result.value) {
+                    const val = result.value.trim().toUpperCase();
+                    if (appData.kelas.includes(val)) return Swal.fire('Info', 'Kelas sudah ada!', 'warning');
+                    appData.kelas.push(val);
+                    saveData();
+                    renderKelas();
+                }
             });
         }
 
+        function hapusKelas(idx) {
+            const kName = appData.kelas[idx];
+            if (appData.siswa.some(s => s.kelas === kName)) {
+                return Swal.fire('Gagal', `Masih ada siswa di Kelas ${kName}.`, 'error');
+            }
+            Swal.fire({
+                title: `Hapus Kelas ${kName}?`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                confirmButtonText: 'Ya, hapus!'
+            }).then((r) => {
+                if (r.isConfirmed) { appData.kelas.splice(idx, 1); saveData(); renderKelas(); }
+            });
+        }
+
+        // --- DATA MAPEL ---
         function renderMapel() {
             document.getElementById('list-mapel').innerHTML = appData.mapel.map((m, idx) => `
-                <li class="p-4 flex justify-between items-center">
-                    <span>${idx + 1}. ${m}</span>
+                <li class="p-4 flex justify-between items-center hover:bg-slate-50">
+                    <span class="font-medium text-slate-700">${idx + 1}. ${m}</span>
                     <button onclick="appData.mapel.splice(${idx},1);saveData();renderMapel();" class="text-slate-400 hover:text-red-500"><i class="fa-solid fa-xmark"></i></button>
                 </li>
             `).join('');
         }
+
         function addMapel() {
             Swal.fire({ title: 'Tambah Mata Pelajaran', input: 'text', showCancelButton: true }).then(r => {
                 if (r.isConfirmed && r.value) { appData.mapel.push(r.value.trim()); saveData(); renderMapel(); }
